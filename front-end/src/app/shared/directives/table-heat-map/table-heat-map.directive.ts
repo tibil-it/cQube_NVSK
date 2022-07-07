@@ -5,6 +5,7 @@ import {
   ElementRef,
   Input,
   OnChanges,
+  OnDestroy,
   QueryList,
 } from '@angular/core';
 
@@ -35,7 +36,7 @@ export class TableHeatMapColumnDirective {
 @Directive({
   selector: '[tableHeatMap]',
 })
-export class TableHeatMapDirective implements AfterViewInit, OnChanges {
+export class TableHeatMapDirective implements AfterViewInit, OnDestroy {
   @ContentChildren(TableHeatMapCellDirective, { descendants: true }) tableHeatMapCells: QueryList<TableHeatMapCellDirective> | undefined;
   @ContentChildren(TableHeatMapColumnDirective, { descendants: true }) tableHeatMapColumns: QueryList<TableHeatMapColumnDirective> | undefined;
 
@@ -43,25 +44,43 @@ export class TableHeatMapDirective implements AfterViewInit, OnChanges {
   cells: TableHeatMapCellDirective[] = [];
   columns: TableHeatMapColumnDirective[] = [];
   config: any = {};
+  observer: MutationObserver | undefined;
+
+  constructor(private elRef: ElementRef) {}
 
   ngAfterViewInit() {
-    setTimeout(() => {
-      if (this.tableHeatMapCells) {
-        this.cells = this.tableHeatMapCells.toArray();
-      }
-  
-      if (this.tableHeatMapColumns) {
-        this.columns = this.tableHeatMapColumns.toArray();
-      }
-  
-      this.setOptions();
-      this.calculateHighestValues();
-      this.applyHeatMap();
-    }, 2000);
-  }
+    if (this.tableHeatMapCells) {
+      this.cells = this.tableHeatMapCells.toArray();
+    }
 
-  ngOnChanges(): void {
-    console.log('changed');
+    if (this.tableHeatMapColumns) {
+      this.columns = this.tableHeatMapColumns.toArray();
+    }
+
+    this.setOptions();
+    this.calculateHighestValues();
+    this.applyHeatMap();
+
+    let ref: TableHeatMapDirective = this;
+
+    this.observer = new MutationObserver((mutations) => {
+      let timer: any;
+      mutations.forEach(function (mutation) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          if (ref.tableHeatMapCells && ref.tableHeatMapColumns) {
+            ref.cells = ref.tableHeatMapCells.toArray();
+            ref.columns = ref.tableHeatMapColumns.toArray();
+            ref.setOptions();
+            ref.calculateHighestValues();
+            ref.applyHeatMap();
+          }
+        }, 1000);
+      });
+    });
+    var config = { attributes: true, childList: true, characterData: true };
+
+    this.observer.observe(this.elRef.nativeElement, config);
   }
 
   private setOptions() {
@@ -94,10 +113,10 @@ export class TableHeatMapDirective implements AfterViewInit, OnChanges {
 
   private getColor(id: string, value: number) {
     const color = this.config[id].color;
-    const [r, g, b, a] = parseToRgba(color);
+    let [r, g, b, a] = parseToRgba(Array.isArray(color) ? color[color.length - 1] : color);
 
     if (value) {
-      const color = this.config[id].color;
+      let color = this.config[id].color;
       let textColor = null;
       let bgColor = null;
       if (color != null) {
@@ -110,6 +129,18 @@ export class TableHeatMapDirective implements AfterViewInit, OnChanges {
           console.log(value, h, s, 1 - lightness, Math.min(1 - lightness, 0.95), a);
         }
         textColor = readableColor(bgColor);*/
+        if (Array.isArray(color)) {
+          if (value / this.highestValues[id] > 0.7) {
+            color = color[0];
+            console.log(color);
+          } else if (value / this.highestValues[id] > 0.45) {
+            color = color[1];
+          } else {
+            color = color[2];
+          }
+        }
+
+        let [r, g, b, a] = parseToRgba(color);
         bgColor = rgba(r, g, b, +(Math.min(1, value / this.highestValues[id] + 0.06)).toFixed(3));
         textColor = readableColor(bgColor);
       }
@@ -122,6 +153,12 @@ export class TableHeatMapDirective implements AfterViewInit, OnChanges {
     return {
       bgColor: rgba(r, g, b, 0.04),
       color: readableColor(rgba(r, g, b, 0.04))
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.observer) {
+      this.observer.disconnect();
     }
   }
 }
