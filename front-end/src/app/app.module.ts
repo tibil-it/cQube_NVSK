@@ -12,6 +12,7 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { MatTableModule } from '@angular/material/table';
 import { MatSortModule } from '@angular/material/sort';
 import { NgChartsModule } from 'ng2-charts';
+import { CqubeLibraryModule } from 'cqube-library';
 
 
 @NgModule({
@@ -28,7 +29,8 @@ import { NgChartsModule } from 'ng2-charts';
     MatSortModule,
     NgChartsModule,
     FormsModule,
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    CqubeLibraryModule
   ],
   providers: [],
   bootstrap: [AppComponent]
